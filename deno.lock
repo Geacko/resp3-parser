@@ -1,0 +1,30 @@
+{
+  "version": "3",
+  "packages": {
+    "specifiers": {
+      "jsr:@geacko/composer@^0.0.1": "jsr:@geacko/composer@0.0.1",
+      "jsr:@geacko/resp3-parser": "jsr:@geacko/resp3-parser@2.2.0",
+      "jsr:@geacko/resp3-parser@1.2.0": "jsr:@geacko/resp3-parser@1.2.0",
+      "jsr:@geacko/resp3-parser@2.2.0": "jsr:@geacko/resp3-parser@2.2.0",
+      "jsr:@geacko/resp3-parser@3.0.3-beta": "jsr:@geacko/resp3-parser@3.0.3-beta"
+    },
+    "jsr": {
+      "@geacko/composer@0.0.1": {
+        "integrity": "8d1a6bce5edcfd764e85e27cac830371439b5b8240c8cfc484c9e4f57dccec93"
+      },
+      "@geacko/resp3-parser@1.2.0": {
+        "integrity": "b065c7c7059ac85047f8cd4ee6da75ed584400d6948cd64a7563e008fd95a77b",
+        "dependencies": [
+          "jsr:@geacko/composer@^0.0.1"
+        ]
+      },
+      "@geacko/resp3-parser@2.2.0": {
+        "integrity": "fac8f742ae6ffd9e91dcda26251636daa0b7934f8141a7cdb1e9cc3885d9ccfe"
+      },
+      "@geacko/resp3-parser@3.0.3-beta": {
+        "integrity": "ebfeb4a72bb76b9e3238ab954b5c74461fa50a3b1b2455d138c0f41191fcb588"
+      }
+    }
+  },
+  "remote": {}
+}
