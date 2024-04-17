@@ -1,4 +1,7 @@
 {
+  "name": "@geacko/resp3-parser",
+  "version": "4.0.1",
+  "exports": "./mod.ts",
   "compilerOptions": {
     "noUncheckedIndexedAccess": true
   }
