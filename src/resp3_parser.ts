@@ -985,18 +985,51 @@ function createParserState() {
  *  ...
  */
 export class Resp3Parser {
-
-    /** ... */
+    
+    /**
+     *  returns `true` if the buffer is empty and the 
+     *  response has been completely parsed
+     */
     get done() : boolean {
         return true
     }
 
-    /** ... */
+    /**
+     *  Returns the number of bytes remaining in the 
+     *  buffer to process. 
+     *  This number can be negative.
+     */
     get remainingBytes() : number {
         return 0
     }
 
-    /** ... */
+    /**
+     *  Create a new parser.
+     * 
+     *  **Example**
+     *  ```ts
+     *  // create 2 responses packed into one
+     *  const blob = new TextEncoder().encode('+Welcome, this is a test...\r\n:1234\r\n')
+     *  
+     *  // create the parser
+     *  const parser = new ChunkedParser()
+     *  
+     *  // append a chunk "+Welcome"
+     *  parser.appendChunk(blob.subarray(0, 8))
+     *  
+     *  // parsing failed
+     *  console.log(parser.process())   // undefined
+     *  
+     *  // append a new chunk ", this is a test...\r\n:1234\r\n"
+     *  parser.appendChunk(blob.subarray(8))
+     *  
+     *  // return the first response
+     *  console.log(parser.process())   // "Welcome, this is a test..."
+     *  
+     *  // return the second response
+     *  console.log(parser.process())   // 1234
+     *  ```
+     */
     constructor() {
         
         const state = createParserState()
@@ -1014,21 +1047,30 @@ export class Resp3Parser {
 
     }
 
-    /** ... */
+    /**
+     *  Resets parser state.
+     */
     reset() {
         return
     }
 
-    /** ... */
+    /**
+     *  Add a new chunk to the buffer.
+     */
     appendChunk(
-        _: Uint8Array
+        // deno-lint-ignore no-unused-vars
+        chunk: Uint8Array
     ) {
 
         return
     
     }
 
-    /** ... */
+    /**
+     *  Try to parse the buffer. if successful, returns 
+     *  the parsed response. 
+     *  Otherwise, returns `undefined`.
+     */
     process<T extends Reply | ReplyWithAttributes>() : Maybe<T> {
         return null as Maybe<T>
     }
