@@ -6,17 +6,17 @@ export class Failure {
 
 }
 
-export class Push extends Array<Reply | ReplyWithAttributes> {
+export class Push extends Array<Reply> {
     // ...
 }
 
-export class Unordered extends Array<Reply | ReplyWithAttributes> {
+export class Unordered extends Array<Reply> {
     // ...
 }
 
 export class Hash<
-    K extends Reply | ReplyWithAttributes = Reply | ReplyWithAttributes, 
-    V extends Reply | ReplyWithAttributes = Reply | ReplyWithAttributes
+    K extends Reply = Reply, 
+    V extends Reply = Reply
 > extends Array<[ K , V ]> {
 
     // ...
@@ -36,7 +36,7 @@ export class Verbatim {
 
 }
 
-export type Reply
+export type ReplyValue
     = string 
     | number 
     | boolean
@@ -50,7 +50,7 @@ export type Reply
     | Reply[]
 
 export class ReplyWithAttributes<
-    T extends Reply = Reply, U extends Record<string, Reply> = Record<string, Reply>
+    T extends ReplyValue = ReplyValue, U extends Record<string, ReplyValue> = Record<string, ReplyValue>
 > {
 
     constructor(
@@ -64,6 +64,10 @@ export class ReplyWithAttributes<
 
 }
  
-export type Maybe<T extends Reply | ReplyWithAttributes> 
+export type Maybe<T extends Reply> 
     = T 
     | undefined
+
+export type Reply 
+    = ReplyValue 
+    | ReplyWithAttributes

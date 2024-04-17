@@ -2,17 +2,13 @@ import type {
     Reply
 } from './types.ts'
 
-import {
-    ReplyWithAttributes
-} from './types.ts'
-
 import { 
     Resp3Parser 
 } from './resp3_parser.ts'
 
 function createTransform(
     parser: Resp3Parser
-) : TransformStreamDefaultControllerTransformCallback<Uint8Array, Reply | ReplyWithAttributes> {
+) : TransformStreamDefaultControllerTransformCallback<Uint8Array, Reply> {
 
     return (
         chunk, controller
@@ -32,7 +28,7 @@ function createTransform(
 /**
  *  RESP v2/v3 decoder stream
  */
-export class Resp3DecoderStream extends TransformStream<Uint8Array, Reply | ReplyWithAttributes> {
+export class Resp3DecoderStream extends TransformStream<Uint8Array, Reply> {
 
     constructor() {
 

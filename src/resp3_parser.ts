@@ -3,8 +3,9 @@ import {
 } from "./blob_composer.ts"
 
 import type {
-    Reply,
     Maybe,
+    Reply,
+    ReplyValue,
 } from './types.ts'
 
 import {
@@ -63,8 +64,6 @@ const enum KeyWord {
 
 }
 
-type List = Array<Reply | ReplyWithAttributes>
-
 interface Func<T> {
     (/** void */) : T
 }
@@ -91,7 +90,7 @@ function createParserState() {
     /**
      *  Parse the reply
      */
-    function parseReply() : Maybe<Reply | ReplyWithAttributes> {
+    function parseReply() : Maybe<Reply> {
 
         switch (chunk[count++] ?? 0) {
 
@@ -128,13 +127,13 @@ function createParserState() {
      */
     function parseReplyWithAttributes() {
 
-        const e = call(parseHash) as Hash<string, Reply>
+        const e = call(parseHash) as Hash<string, ReplyValue>
 
         if (e) {
 
             const a = {
                 // ...
-            } as Record<string, Reply>
+            } as Record<string, ReplyValue>
             
             // convert hash -> record
             e.forEach(([
@@ -160,7 +159,7 @@ function createParserState() {
      *  parse reply value of the reply with attributes
      */
     function parseReplyWithAttributesValue(
-        o = stack.pop() as Record<string, Reply>
+        o = stack.pop() as Record<string, ReplyValue>
     ) {
 
         const x = call(parseReply)
@@ -814,8 +813,8 @@ function createParserState() {
     function parseEntry() {
 
         return parseExpressionList(2, 0, new Array(2)) as [ 
-            Reply | ReplyWithAttributes, 
-            Reply | ReplyWithAttributes 
+            Reply, 
+            Reply, 
         ] | undefined
 
     }
@@ -825,7 +824,7 @@ function createParserState() {
     }
 
     function parseStreamedExpressionList(
-        o = stack.pop() as List
+        o = stack.pop() as Reply[]
     ) {
 
         let e
@@ -847,7 +846,7 @@ function createParserState() {
     function parseExpressionList(
         s = stack.pop() as number,
         i = stack.pop() as number,
-        o = stack.pop() as List
+        o = stack.pop() as Reply[]
     ) {
 
         for (
@@ -1071,7 +1070,7 @@ export class Resp3Parser {
      *  the parsed response. 
      *  Otherwise, returns `undefined`.
      */
-    process<T extends Reply | ReplyWithAttributes>() : Maybe<T> {
+    process<T extends Reply>() : Maybe<T> {
         return null as Maybe<T>
     }
 
