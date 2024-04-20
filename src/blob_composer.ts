@@ -9,38 +9,56 @@ function sum(a: number, x: Uint8Array) {
 /** @internal */
 export class BlobComposer {
 
-    private blobparts = [
+    /**
+     *  Blob parts
+     */
+    private parts = [
         // ...
-    ] as Uint8Array[]
+    ] as Readonly<Uint8Array>[]
 
+    /**
+     *  Blob size in bytes
+     */
     get size() {
-        return this.blobparts.reduce(sum, 0)
+        return this.parts.reduce(sum, 0)
     }
 
+    /**
+     *  Number of parts
+     */
     get count() {
-        return this.blobparts.length
+        return this.parts.length
     }
 
-    add(blob: Uint8Array) {
-        this.blobparts.push(blob)
+    /**
+     *  Add a new part
+     */
+    add(blob: Readonly<Uint8Array>) {
+        this.parts.push(blob)
     }
 
+    /**
+     * Clear the Blob
+     */
     clear() {
 
-        this.blobparts = [
+        this.parts = [
             // ...
         ]
-    
+
     }
 
-    compose() {
+    /**
+     *  Concatenates all parts into one
+     */
+    compose() : Readonly<Uint8Array> {
 
         const {
             count
         } = this
 
         if (count == 1) {
-            return this.blobparts.pop()!
+            return this.parts.pop()!
         }
 
         else
@@ -53,11 +71,11 @@ export class BlobComposer {
             const out = new Uint8Array(this.size)
 
             let s = 0
-            for (const x of this.blobparts) {
+            for (const x of this.parts) {
                 out.set(x, s); s += x.byteLength
             }
     
-            this.blobparts = [
+            this.parts = [
                 // ...
             ]
     

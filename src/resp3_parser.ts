@@ -13,7 +13,6 @@ import {
     Hash,
     Unordered,
     Bulk,
-    ReplyWithAttributes,
 } from './types.ts'
 
 import { 
@@ -69,7 +68,7 @@ interface Func<T> {
 }
 
 function createParserState({
-    decodeBulk = true, mapMap, mapSet, mapReplyWithAttributes, decodeVerbatim
+    decodeBulk = true, mapVerbatim, mapMap, mapSet, mapReplyWithAttributes
 } : Resp3ParserOptions) {
 
     const composer 
@@ -91,23 +90,22 @@ function createParserState({
         ? parseMappedUnordered 
         : parseUnordered
 
+    function throwSyntaxError() {
+        throw new SyntaxError('Unexpected char "' + String.fromCharCode(chunk[count]!) + '"')
+    }
+
     function call<T>(proc: Func<T>) {
         return (stack.length ? stack.pop() as Func<T> : proc)()
     }
 
     function parseReply() : Maybe<unknown> {
 
-        switch (chunk[count++] ?? 0) {
+        switch (chunk[count++]) {
 
-        //  ------------------------------------------------------
-        //  > EOF
-        //  ------------------------------------------------------
-            case 0: return count--, void 0
-        //  ------------------------------------------------------
+            case void 0: {
+                return count--, void 0
+            }
 
-        //  ------------------------------------------------------
-        //  > Value
-        //  ------------------------------------------------------
             case Code[`+`]: return parseLine()
             case Code[`-`]: return parseFailure()
             case Code[`:`]: return parseInt()
@@ -123,17 +121,11 @@ function createParserState({
             case Code[`%`]: return parseMap()
             case Code[`>`]: return parsePush()
             case Code[`|`]: return parseReplyWithAttributes()
-        //  ------------------------------------------------------
-
-        //  ------------------------------------------------------
-        //  > Error
-        //  ------------------------------------------------------
-            default: throw new SyntaxError(
-                'Unexpected char "' + String.fromCharCode(chunk[--count]!) + '"'
-            )
-        //  ------------------------------------------------------
 
         }
+
+        count--
+        throwSyntaxError()
 
     }
 
@@ -142,52 +134,35 @@ function createParserState({
         const x = call(parseHash)
         
         if (x !== void 0) {
-            return parseReplyWithAttributesPayload(x)
+
+            return x 
+                 ? parseReplyWithAttributesPayload(x) 
+                 : parseReply()
+
         }
 
-        else {
-
-            stack.push(
-                parseReplyWithAttributes
-            )
-        
-        }
+        stack.push(
+            parseReplyWithAttributes
+        )
 
     }
 
     function parseReplyWithAttributesPayload(
-        o = stack.pop() as Hash | null
+        o = stack.pop() as Hash
     ) {
 
-        let x = call(parseReply)
+        const x = call(parseReply)
         
         if (x !== void 0) {
 
-            // something wrong here...
-            if (o === null) {
-                return x
-            }
-
-            // We remove nested attributes
-            x = x instanceof ReplyWithAttributes 
-              ? x.value 
-              : x
-
-            const out = new ReplyWithAttributes(o, x)
-
             return mapReplyWithAttributes 
-                 ? mapReplyWithAttributes(out) 
-                 : out
+                 ? mapReplyWithAttributes(x, o) : x
         
         }
 
-        else {
-
-            stack.push(
-                o, parseReplyWithAttributesPayload
-            )
-
-        }
+        stack.push(
+            o, parseReplyWithAttributesPayload
+        )
 
     }
 
@@ -199,13 +174,9 @@ function createParserState({
             return new Failure(x)
         }
 
-        else {
-
-            stack.push(
-                parseFailure
-            )
-
-        }
+        stack.push(
+            parseFailure
+        )
 
     }
 
@@ -285,13 +256,9 @@ function createParserState({
             return count += 3, x == Char[`t`]
         }
 
-        else  {
-
-            stack.push(
-                parseBoolean
-            )
-
-        }
+        stack.push(
+            parseBoolean
+        )
 
     }
 
@@ -310,13 +277,9 @@ function createParserState({
 
         }
 
-        else {
-
-            stack.push(
-                parseDouble
-            )
-
-        }
+        stack.push(
+            parseDouble
+        )
 
     }
 
@@ -328,13 +291,9 @@ function createParserState({
             return BigInt(x)
         }
 
-        else {
-
-            stack.push(
-                parseBigNumbers
-            )
-
-        }
+        stack.push(
+            parseBigNumbers
+        )
 
     }
 
@@ -368,13 +327,9 @@ function createParserState({
             return new Failure(x ? decodeBulk ? decode(x) : new Bulk('', x) : '')
         }
 
-        else {
-
-            stack.push(
-                parseBulkFailure
-            )
-
-        }
+        stack.push(
+            parseBulkFailure
+        )
 
     }
 
@@ -405,7 +360,7 @@ function createParserState({
                 e += ASCII[x]        
             }
 
-            // something is wrong ...
+            // :(
             if (i === count) {
                 return decodeBulk ? decode(b) : new Bulk(e, b)
             }
@@ -417,9 +372,8 @@ function createParserState({
                     b.subarray(i)
                 )
     
-                return decodeVerbatim 
-                     ? decodeVerbatim(out) 
-                     : out
+                return mapVerbatim 
+                     ? mapVerbatim(out) : out
 
             }
 
@@ -435,13 +389,9 @@ function createParserState({
             return x ? mapMap!(x) : x
         }
 
-        else {
-
-            stack.push(
-                parseMappedHash
-            )
-        
-        }
+        stack.push(
+            parseMappedHash
+        )
 
     }
 
@@ -453,13 +403,9 @@ function createParserState({
             return x ? mapSet!(x) : x
         }
 
-        else {
-
-            stack.push(
-                parseMappedUnordered
-            )
-        
-        }
+        stack.push(
+            parseMappedUnordered
+        )
 
     }
 
@@ -478,7 +424,7 @@ function createParserState({
         
         // empty set
         else if (s == 0) {
-            return new Unordered()
+            return new Unordered(0)
         }
         
         // set with negative size -> null
@@ -508,7 +454,7 @@ function createParserState({
         
         // empty hash
         else if (s == 0) {
-            return new Hash()
+            return new Hash(0)
         }
         
         // hash with negative value -> null
@@ -575,14 +521,10 @@ function createParserState({
             return o
         }
 
-        else {
-
-            count = m - 1
-            stack.push(
-                o, parseAsciiLineBytes
-            )
-
-        }
+        count = m - 1
+        stack.push(
+            o, parseAsciiLineBytes
+        )
 
     }
 
@@ -606,14 +548,10 @@ function createParserState({
             return decode(composer.compose())
         }
 
-        else {
-
-            count -= 2
-            stack.push(
-                parseLine
-            )
-
-        }
+        count -= 2
+        stack.push(
+            parseLine
+        )
 
     }
 
@@ -643,14 +581,10 @@ function createParserState({
             return count = m + 1, s * i
         }
 
-        else {
-
-            count = m - 1
-            stack.push(
-                i, s, parseDecimals
-            )
-
-        }
+        count = m - 1
+        stack.push(
+            i, s, parseDecimals
+        )
 
     }
 
@@ -673,14 +607,10 @@ function createParserState({
             return count = m + 1, s < 0 ? -i : i
         }
 
-        else {
-
-            count = m - 1
-            stack.push(
-                i, s, parseBigIntDecimals
-            )
-
-        }
+        count = m - 1
+        stack.push(
+            i, s, parseBigIntDecimals
+        )
 
     }
 
@@ -726,13 +656,9 @@ function createParserState({
             return composer.compose()
         }
 
-        else {
-
-            stack.push(
-                parseChunkedBlob
-            )
-
-        }
+        stack.push(
+            parseChunkedBlob
+        )
 
     }
 
@@ -756,14 +682,10 @@ function createParserState({
             return composer.compose()
         }
 
-        else {
-
-            count -= 2
-            stack.push(
-                s, parseDecodedBlob
-            )
-
-        }
+        count -= 2
+        stack.push(
+            s, parseDecodedBlob
+        )
 
     }
 
@@ -786,13 +708,9 @@ function createParserState({
             return count += 3, o
         }
 
-        else {
-
-            stack.push(
-                o, parseStreamedEntryList
-            )
-
-        }
+        stack.push(
+            o, parseStreamedEntryList
+        )
 
     }
 
@@ -814,13 +732,9 @@ function createParserState({
             return o
         }
 
-        else {
-
-            stack.push(
-                o, i, s, parseEntryList
-            )
-
-        }
+        stack.push(
+            o, i, s, parseEntryList
+        )
 
     }
 
@@ -846,13 +760,9 @@ function createParserState({
             return count += 3, o
         }
 
-        else {
-
-            stack.push(
-                o, parseStreamedExpressionList
-            )
-
-        }
+        stack.push(
+            o, parseStreamedExpressionList
+        )
 
     }
 
@@ -874,13 +784,9 @@ function createParserState({
             return o
         }
 
-        else {
-
-            stack.push(
-                o, i, s, parseExpressionList
-            )
-
-        }
+        stack.push(
+            o, i, s, parseExpressionList
+        )
 
     }
 
@@ -938,14 +844,10 @@ function createParserState({
             return o
         }
 
-        else {
-
-            count -= 2
-            stack.push(
-                o, parseUint32
-            )
-
-        }
+        count -= 2
+        stack.push(
+            o, parseUint32
+        )
 
     }
 
@@ -996,14 +898,10 @@ function createParserState({
             return true
         }
 
-        else {
-
-            count -= 2
-            stack.push(
-                s, captureUndecodedBlob
-            )
-
-        }
+        count -= 2
+        stack.push(
+            s, captureUndecodedBlob
+        )
 
     }
 
