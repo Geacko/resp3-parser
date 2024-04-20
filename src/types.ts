@@ -56,7 +56,7 @@ export class Failure {
     /** 
      *  Error message
      */
-    readonly payload
+    readonly payload: string | Bulk
     
     /** 
      *  Failure constructor 
