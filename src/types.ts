@@ -102,7 +102,7 @@ export class Bulk {
     /**
      *  ...
      */
-    decode() {
+    decode() : string {
         return decode(this.blob)
     }
 
