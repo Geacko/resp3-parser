@@ -6,6 +6,7 @@ function sum(a: number, x: Uint8Array) {
     return a + x.byteLength
 }
 
+/** @internal */
 export class BlobComposer {
 
     private blobparts = [

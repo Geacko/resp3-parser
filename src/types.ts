@@ -1,73 +1,139 @@
+import { 
+    decode 
+} from "./utils.ts"
+
+/** ... */
+export interface Resp3ParserOptions {
+
+    /**
+     *  ...
+     */
+    decodeBulk?: boolean
+
+    /**
+     *  ...
+     */
+    decodeVerbatim?(
+        x: Bulk
+    ): unknown
+
+    /**
+     *  ...
+     */
+    mapMap?(
+        x: Hash
+    ): unknown
+
+    /**
+     *  ...
+     */
+    mapSet?(
+        x: Unordered
+    ): unknown
+
+    /**
+     *  ...
+     */
+    mapReplyWithAttributes?(
+        x: ReplyWithAttributes
+    ): unknown
+
+}
+
+export type Maybe<T extends unknown> 
+    = T 
+    | undefined
+
+/** ... */
 export class Failure {
     
-    constructor(public message: string) {
+    constructor(public payload: string | Bulk) {
         // ...
     }
 
 }
 
-export class Push extends Array<Reply> {
+/** ... */
+export class Push extends Array<unknown> {
     // ...
 }
 
-export class Unordered extends Array<Reply> {
+/** ... */
+export class Unordered extends Array<unknown> {
     // ...
 }
 
+/** ... */
 export class Hash<
-    K extends Reply = Reply, 
-    V extends Reply = Reply
+    K extends unknown = unknown, 
+    V extends unknown = unknown
 > extends Array<[ K , V ]> {
 
     // ...
 
 }
 
-export class Verbatim {
+/** ... */
+export class Bulk {
+
+    /**
+     *  ...
+     */
+    readonly encoding: string
+
+    /**
+     *  ...
+     */
+    readonly blob: Uint8Array
     
+    /**
+     *  ...
+     */
     constructor(
-        public ecoding: string,
-        public content: string,
+        encoding : string,
+        blob     : Uint8Array,
     ) {
 
-        // ...
+        this.encoding = encoding
+        this.blob     = blob
 
+    }
+
+    /**
+     *  ...
+     */
+    decode() {
+        return decode(this.blob)
     }
 
 }
 
-export type ReplyValue
-    = string 
-    | number 
-    | boolean
-    | bigint
-    | null
-    | Failure
-    | Push
-    | Unordered
-    | Hash
-    | Verbatim
-    | Reply[]
-
+/** ... */
 export class ReplyWithAttributes<
-    T extends ReplyValue = ReplyValue, U extends Record<string, ReplyValue> = Record<string, ReplyValue>
+    T extends unknown = unknown, U extends Hash = Hash
 > {
 
+    /**
+     *  ...
+     */
+    readonly attributes: U
+    
+    /**
+     *  ...
+     */
+    readonly value: T
+
+    /**
+     *  ...
+     */
     constructor(
-        public attrs: U,
-        public reply: T
+        attributes : U,
+        value      : T
     ) {
         
-        // ...
+        this.attributes = attributes
+        this.value      = value
 
     }
 
 }
- 
-export type Maybe<T extends Reply> 
-    = T 
-    | undefined
-
-export type Reply 
-    = ReplyValue 
-    | ReplyWithAttributes

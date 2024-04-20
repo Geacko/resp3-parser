@@ -1,5 +1,5 @@
 import type { 
-    Reply
+    Resp3ParserOptions,
 } from './types.ts'
 
 import { 
@@ -8,7 +8,7 @@ import {
 
 function createTransform(
     parser: Resp3Parser
-) : TransformStreamDefaultControllerTransformCallback<Uint8Array, Reply> {
+) : TransformStreamDefaultControllerTransformCallback<Uint8Array, unknown> {
 
     return (
         chunk, controller
@@ -28,12 +28,14 @@ function createTransform(
 /**
  *  RESP v2/v3 decoder stream
  */
-export class Resp3DecoderStream extends TransformStream<Uint8Array, Reply> {
+export class Resp3DecoderStream extends TransformStream<Uint8Array, unknown> {
 
-    constructor() {
+    constructor(
+        opts: Resp3ParserOptions = {}
+    ) {
 
         super({ 
-            transform: createTransform(new Resp3Parser()) 
+            transform: createTransform(new Resp3Parser(opts)) 
         })
     
     }

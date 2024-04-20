@@ -1,0 +1,4 @@
+.vscode
+.github
+deno.lock
+test.ts

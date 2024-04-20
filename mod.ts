@@ -1,15 +1,15 @@
 export {
     Failure,
+    Push,
     Unordered,
     Hash,
-    Push,
-    Verbatim,
-    ReplyWithAttributes
+    Bulk,
+    ReplyWithAttributes,
 } from './src/types.ts'
 
 export type {
-    Reply,
     Maybe,
+    Resp3ParserOptions
 } from './src/types.ts'
 
 export {
