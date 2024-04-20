@@ -16,28 +16,28 @@ export interface Resp3ParserOptions {
 
     /**
      *  Transform all RESPv3 Verbatim 
-     *  String 
+     *  Strings
      */
     mapVerbatim?(
         x: Bulk
     ): unknown
 
     /**
-     *  Transform all RESPv3 Map
+     *  Transform all RESPv3 Maps
      */
     mapMap?(
         x: Hash
     ): unknown
 
     /**
-     *  Transform all RESPv3 Set
+     *  Transform all RESPv3 Sets
      */
     mapSet?(
         x: Unordered
     ): unknown
 
     /**
-     *  Transform all reply with
+     *  Transform all replies with
      *  attributes
      */
     mapReplyWithAttributes?(
