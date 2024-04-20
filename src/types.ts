@@ -54,13 +54,19 @@ export class Failure {
 }
 
 /** ... */
-export class Push extends Array<unknown> {
+export class Push<
+    T extends unknown = unknown
+> extends Array<T> {
     // ...
 }
 
 /** ... */
-export class Unordered extends Array<unknown> {
+export class Unordered<
+    T extends unknown = unknown
+> extends Array<T> {
+
     // ...
+
 }
 
 /** ... */
@@ -84,18 +90,18 @@ export class Bulk {
     /**
      *  ...
      */
-    readonly blob: Uint8Array
+    readonly body: Uint8Array
     
     /**
      *  ...
      */
     constructor(
         encoding : string,
-        blob     : Uint8Array,
+        body     : Uint8Array,
     ) {
 
         this.encoding = encoding
-        this.blob     = blob
+        this.body     = body
 
     }
 
@@ -103,7 +109,7 @@ export class Bulk {
      *  ...
      */
     decode() : string {
-        return decode(this.blob)
+        return decode(this.body)
     }
 
 }
