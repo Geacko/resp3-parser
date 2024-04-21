@@ -89,7 +89,7 @@ export class Bulk {
     /**
      *  Size in bytes of the body
      */
-    get size() {
+    get size() : number {
         return this.body.byteLength
     }
     
