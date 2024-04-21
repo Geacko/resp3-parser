@@ -4,6 +4,7 @@ export {
     Unordered,
     Hash,
     Bulk,
+    FormatedBulk,
 } from './src/types.ts'
 
 export type {

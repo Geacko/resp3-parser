@@ -41,21 +41,22 @@ while (parser.remainingBytes > 0) {
 
 **Types**
 
-| RESP            | Javascript           |
-|-----------------|----------------------|
-| Simple String   | `string`             |
-| Simple Error    | `Failure`            |
-| Integer         | `number` or `bigint` |
-| Big Number      | `bigint`             |
-| Boolean         | `boolean`            |
-| Double          | `number`             |
-| Array           | `Array<T>`           |
-| Null            | `null`               |
-| Bulk String     | `Bulk` or `string`   |
-| Verbatim String | `Bulk`               |
-| Bulk Error      | `Failure`            |
-| Set             | `Unordered<T>`       |
-| Map             | `Hash<T>`            |
-| Attributes      | `Hash<T>`            |
-| Hello            |`Hash<T>`            |
-| Push            | `Push<T>`            |
+| RESP                  | Javascript                             |
+|-----------------------|----------------------------------------|
+| Simple String         | `string`                               |
+| Simple Error          | `Failure`                              |
+| Integer               | `number` or `bigint`                   |
+| Big Number            | `bigint`                               |
+| Boolean               | `boolean`                              |
+| Double                | `number`                               |
+| Array                 | `Array<T>`                             |
+| Null                  | `null`                                 |
+| Bulk String           | `Bulk` or `string`                     |
+| Verbatim String       | `Bulk`                                 |
+| Bulk Error            | `Failure`                              |
+| Set                   | `Unordered<T>`                         |
+| Map                   | `Hash<T>`                              |
+| Attributes            | `Hash<T>`                              |
+| Hello                 |`Hash<T>`                               |
+| Push                  | `Push<T>`                              |
+| Reply with Attributes | `{ reply: unknown, attributes: Hash }` |

@@ -6,42 +6,19 @@ import {
 export interface Resp3ParserOptions {
 
     /**
-     *  If true, the bulk string and error 
-     *  will be returned decoded. 
-     *  Otherwise, a `Bulk` object will 
+     *  If true, all RESP3 bulk strings that are 
+     *  not a key of a `Hash` will be returned 
+     *  decoded. Otherwise, a `Bulk` object will 
      *  be returned.
      *  @default true
      */
     decodeBulk?: boolean
 
     /**
-     *  Transform all RESPv3 Verbatim 
-     *  Strings
+     *  Maps all replies
      */
-    mapVerbatim?(
-        x: Bulk
-    ): unknown
-
-    /**
-     *  Transform all RESPv3 Maps
-     */
-    mapMap?(
-        x: Hash
-    ): unknown
-
-    /**
-     *  Transform all RESPv3 Sets
-     */
-    mapSet?(
-        x: Unordered
-    ): unknown
-
-    /**
-     *  Transform all replies with
-     *  attributes
-     */
-    mapReplyWithAttributes?(
-        x: unknown, attribs: Hash
+    map?(
+        x: unknown, attributes?: Hash
     ): unknown
 
 }
@@ -56,16 +33,16 @@ export class Failure {
     /** 
      *  Error message
      */
-    readonly payload: string | Bulk
+    readonly reason: string
     
     /** 
      *  Failure constructor 
      */
     constructor(
-        payload: string | Bulk
+        reason: string
     ) {
 
-        this.payload = payload
+        this.reason = reason
     
     }
 
@@ -99,29 +76,31 @@ export class Hash<
 
 }
 
-/** Represents a RESPv2/v3 Bulk */
+/** 
+ *  Represents a RESPv2/v3 Bulk String
+ */
 export class Bulk {
-
-    /**
-     *  Encoding of the `Bulk`
-     */
-    readonly encoding: string
 
     /**
      *  Buffer of the `Bulk`
      */
     readonly body: Uint8Array
+
+    /**
+     *  Size in bytes of the body
+     */
+    get size() {
+        return this.body.byteLength
+    }
     
     /**
      *  Bulk constructor
      */
     constructor(
-        encoding : string,
-        body     : Uint8Array,
+        body: Uint8Array,
     ) {
 
-        this.encoding = encoding
-        this.body     = body
+        this.body = body
 
     }
 
@@ -135,3 +114,27 @@ export class Bulk {
 
 }
 
+
+/** 
+ *  Represents a RESPv3 Verbatim String 
+ */
+export class FormatedBulk extends Bulk {
+
+    /**
+     *  Format of the Bulk
+     */
+    readonly format: string
+    
+    /**
+     *  FormatedBulk constructor
+     */
+    constructor(
+        body: Uint8Array, format: string
+    ) {
+
+        super(body)
+        this.format = format
+
+    }
+
+}

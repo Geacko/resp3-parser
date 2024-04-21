@@ -4,7 +4,7 @@ import {
 
 import type {
     Maybe,
-    Resp3ParserOptions,
+    Resp3ParserOptions
 } from './types.ts'
 
 import {
@@ -13,6 +13,7 @@ import {
     Hash,
     Unordered,
     Bulk,
+    FormatedBulk,
 } from './types.ts'
 
 import { 
@@ -68,7 +69,7 @@ interface Func<T> {
 }
 
 function createParserState({
-    decodeBulk = true, mapVerbatim, mapMap, mapSet, mapReplyWithAttributes
+    decodeBulk = true, map
 } : Resp3ParserOptions) {
 
     const composer 
@@ -79,26 +80,12 @@ function createParserState({
     let stack = [
         // ...
     ] as unknown[]
-
-    const parseMap 
-        = mapMap 
-        ? parseMappedHash 
-        : parseHash
-
-    const parseSet 
-        = mapSet 
-        ? parseMappedUnordered 
-        : parseUnordered
-
-    function throwSyntaxError() {
-        throw new SyntaxError('Unexpected char "' + String.fromCharCode(chunk[count]!) + '"')
-    }
-
+    
     function call<T>(proc: Func<T>) {
         return (stack.length ? stack.pop() as Func<T> : proc)()
     }
 
-    function parseReply() : Maybe<unknown> {
+    function parseUnmapped() : Maybe<unknown> {
 
         switch (chunk[count++]) {
 
@@ -116,74 +103,75 @@ function createParserState({
             case Code[`,`]: return parseDouble()
             case Code[`(`]: return parseBigNumbers()
             case Code[`!`]: return parseBulkFailure()
-            case Code[`=`]: return parseVerbatimString()
-            case Code[`~`]: return parseSet()
-            case Code[`%`]: return parseMap()
+            case Code[`~`]: return parseUnordered()
+            case Code[`=`]: return parseEncodedBulk()
+            case Code[`%`]: return parseHash()
             case Code[`>`]: return parsePush()
-            case Code[`|`]: return parseReplyWithAttributes()
+            case Code[`|`]: return parseAttributes()
 
         }
 
-        count--
-        throwSyntaxError()
+        throw new SyntaxError()
 
     }
 
-    function parseReplyWithAttributes() {
+    function hasAttributes(
+        x: unknown
+    ) : x is { attributes: Hash, reply: unknown } {
 
-        const x = call(parseHash)
-        
+        return (x as { attributes: unknown }).attributes !== void 0
+    
+    }
+
+    function parseMapped() {
+
+        const x = call(parseUnmapped)
+
         if (x !== void 0) {
 
-            return x 
-                 ? parseReplyWithAttributesPayload(x) 
-                 : parseReply()
+            return hasAttributes(x) 
+                 ? map!(x.reply, x.attributes) 
+                 : map!(x)
 
         }
 
-        stack.push(
-            parseReplyWithAttributes
-        )
+        else {
 
-    }
-
-    function parseReplyWithAttributesPayload(
-        o = stack.pop() as Hash
-    ) {
-
-        const x = call(parseReply)
-        
-        if (x !== void 0) {
-
-            return mapReplyWithAttributes 
-                 ? mapReplyWithAttributes(x, o) : x
+            stack.push(
+                parseMapped
+            )
         
         }
 
-        stack.push(
-            o, parseReplyWithAttributesPayload
-        )
-
     }
+
+    const parse 
+        = map 
+        ? parseMapped 
+        : parseUnmapped
 
     function parseFailure() {
 
         const x = call(parseLine)
-        
+
         if (x !== void 0) {
             return new Failure(x)
         }
 
-        stack.push(
-            parseFailure
-        )
+        else {
+            
+            stack.push(
+                parseFailure
+            )
+
+        }
 
     }
 
     function parseInt() {
 
         const x = chunk[count]
-        
+
         if (x === void 0) {
             stack.push(parseInt)
         }
@@ -214,36 +202,6 @@ function createParserState({
 
     }
 
-    function parseList() {
-
-        const s = call(parseSize)
-        
-        if (s === void 0) {
-            stack.push(parseList)
-        }
-
-        // non-empty array
-        else if (s > 0) {
-            return parseExpressionList(s, 0, new Array(s))
-        } 
-        
-        // empty array
-        else if (s == 0) {
-            return []
-        } 
-        
-        // array with negative size -> null
-        else if (s < 0) {
-            return null
-        }
-        
-        // size is NaN -> streamed
-        else {
-            return parseStreamedExpressionList([])
-        }
-
-    }
-
     function parseNil() {
         return count += 2, null
     }
@@ -251,23 +209,27 @@ function createParserState({
     function parseBoolean() {
 
         const x = chunk[count]
-        
+
         if (x) {
             return count += 3, x == Char[`t`]
         }
 
-        stack.push(
-            parseBoolean
-        )
+        else {
+
+            stack.push(
+                parseBoolean
+            )
+
+        }
 
     }
 
     function parseDouble() {
 
         const x = call(parseAsciiLine)
-        
-        if (x !== void 0) {
 
+        if (x !== void 0) {
+            
             switch (x) {
                 case KeyWord["+INF"] : return +Infinity
                 case KeyWord["-INF"] : return -Infinity
@@ -277,36 +239,40 @@ function createParserState({
 
         }
 
-        stack.push(
-            parseDouble
-        )
+        else {
+
+            stack.push(
+                parseDouble
+            )
+
+        }
 
     }
 
     function parseBigNumbers() {
 
         const x = call(parseAsciiLine)
-        
+
         if (x !== void 0) {
             return BigInt(x)
         }
 
-        stack.push(
-            parseBigNumbers
-        )
+        else {
+
+            stack.push(
+                parseBigNumbers
+            )
+
+        }
 
     }
 
     function parseBulk() {
 
-        const x = call(parseBlob)
-        
-        if (x === null) {
-            return x
-        }
+        const x = call(captureBlob)
 
-        else if (x) {
-            return decodeBulk ? decode(x) : new Bulk('', x)
+        if (x !== void 0) {
+            return x ? decodeBulk ? decode(x.compose()) : new Bulk(x.compose()) : x
         }
 
         else {
@@ -321,117 +287,300 @@ function createParserState({
 
     function parseBulkFailure() {
 
-        const x = call(parseBlob)
-        
+        const x = call(captureBlob)
+
         if (x !== void 0) {
-            return new Failure(x ? decodeBulk ? decode(x) : new Bulk('', x) : '')
-        }
-
-        stack.push(
-            parseBulkFailure
-        )
-
-    }
-
-    function parseVerbatimString() {
-
-        const b = call(parseBlob)
-        
-        if (b === void 0) {
-            stack.push(parseVerbatimString)
-        }
-
-        else if (b === null) {
-            return b
+            return new Failure(x ? decode(x.compose()) : '')
         }
 
         else {
 
-            const {
-                byteLength: count
-            } = b
+            stack.push(
+                parseBulkFailure
+            )
 
-            let e = ''
-            let i = 0
-            let x
+        }
+
+    }
+
+    function parseEncodedBulk() {
+     
+        const x = call(captureBlob)
+
+        if (x !== void 0) {
             
-            // We assume that the encoding part is ASCII and small
-            while (i < count && (x = b[i++]!) != Char[':']) {
-                e += ASCII[x]        
-            }
+            if (x) {
+                
+                const t = x.compose()
+                const k
+                    = ASCII[t[0]!]!
+                    + ASCII[t[1]!]!
+                    + ASCII[t[2]!]!
 
-            // :(
-            if (i === count) {
-                return decodeBulk ? decode(b) : new Bulk(e, b)
-            }
-
-            else {
-
-                const out = new Bulk(
-                    e, 
-                    b.subarray(i)
+                return new FormatedBulk(
+                    t.subarray(4), k
                 )
-    
-                return mapVerbatim 
-                     ? mapVerbatim(out) : out
 
+            }
+            
+            else {
+                return x
             }
 
         }
 
-    }
+        else {
 
-    function parseMappedHash() {
+            stack.push(
+                parseEncodedBulk
+            )
 
-        const x = call(parseHash)
-        
-        if (x !== void 0) {
-            return x ? mapMap!(x) : x
         }
-
-        stack.push(
-            parseMappedHash
-        )
 
     }
 
-    function parseMappedUnordered() {
+    function parseExpressionList(
+        s = stack.pop() as number,
+        i = stack.pop() as number,
+        o = stack.pop() as unknown[]
+    ) {
 
-        const x = call(parseUnordered)
-        
-        if (x !== void 0) {
-            return x ? mapSet!(x) : x
+        for (
+            let e; i < s && void 0 !== (e = call(parse)); i++
+        ) {
+
+            o[i] = e
+
         }
 
-        stack.push(
-            parseMappedUnordered
-        )
+        if (i == s) {
+            return o
+        }
+
+        else {
+
+            stack.push(
+                o, i, s, parseExpressionList
+            )
+
+        }
+
+    }
+
+    function parseEntry() {
+        return parseExpressionList(2, 0, new Array(2)) as [ unknown , unknown ] | undefined
+    }
+
+    function parseStreamedEntry() {
+        return chunk[count] != Char['.'] ? parseEntry() : void 0
+    }
+
+    function parseStreamedEntryList(
+        o = stack.pop() as Hash
+    ) {
+
+        let e
+
+        while (chunk[count] && void 0 !== (e = call(parseStreamedEntry))) {
+            o.push(e)
+        }
+
+        if (chunk[count] == Char['.']) {
+            return count += 3, o
+        }
+
+        else {
+
+            stack.push(
+                o, parseStreamedEntryList
+            )
+
+        }
+
+    }
+
+    function parseEntryList(
+        s = stack.pop() as number,
+        i = stack.pop() as number,
+        o = stack.pop() as Hash
+    ) {
+
+        for (
+            let e; i < s && void 0 !== (e = call(parseEntry)); i++
+        ) {
+
+            const [
+                k,
+                x,
+            ] = e
+
+            o[i] = [ 
+                k instanceof Bulk ? k.decode() : k , 
+                x 
+            ]
+
+        }
+
+        if (i == s) {
+            return o
+        }
+
+        else {
+
+            stack.push(
+                o, i, s, parseEntryList
+            )
+
+        }
+
+    }
+
+    function parseStreamedReply() {
+        return chunk[count] != Char['.'] ? parse() : void 0
+    }
+
+    function parseStreamedExpressionList(
+        o = stack.pop() as unknown[]
+    ) {
+
+        let e
+
+        while (chunk[count] && void 0 !== (e = call(parseStreamedReply))) {
+            o.push(e)
+        }
+
+        if (chunk[count] == Char['.']) {
+            return count += 3, o
+        }
+
+        else {
+
+            stack.push(
+                o, parseStreamedExpressionList
+            )
+
+        }
+
+    }
+
+    function parseUint32(
+        o = stack.pop() as number
+    ) {
+
+        let x
+        let m = count
+
+        // We assume that `i` will be less than `Number.MAX_SAFE_INTEGER`
+        while ((x = chunk[m++]) && x != Char[`↲`]) {
+
+            o *= 10
+            o -= 48 - x
+
+        }
+
+        count = m + 1
+
+        if (x) {
+            return o
+        }
+
+        else {
+
+            count -= 2
+            stack.push(
+                o, parseUint32
+            )
+
+        }
+
+    }
+
+    function parseSize() {
+
+        const x = chunk[count]
+
+        // streamed -> NaN
+        if (x == Char['?']) {
+            return count += 3, NaN
+        }
+
+        // shortcut for 0
+        else if (x == Char['Ø']) {
+            return count += 3, 0
+        }
+
+        // "-1"
+        else if (x == Char['-']) {
+            return count += 4, -1
+        }
+
+        else if (x) {
+            return parseUint32(0)
+        }
+
+        else {
+
+            stack.push(
+                parseSize
+            )
+
+        }
+
+    }
+
+    function parseList() {
+        
+        const s = call(parseSize)
+
+        if (s === void 0) {
+            stack.push(parseList)
+        } 
+        
+        // non-empty array
+        else if (s > 0) {
+            return parseExpressionList(s, 0, new Array(s))
+        } 
+        
+        // empty array
+        else if (s == 0) {
+            return []
+        } 
+        
+        // array with negative size -> null
+        else if (s < 0) {
+            return null
+        }
+
+        // size is NaN -> streamed
+        else {
+            return parseStreamedExpressionList([])
+        }
 
     }
 
     function parseUnordered() {
 
         const s = call(parseSize)
-        
+
         if (s === void 0) {
             stack.push(parseUnordered)
         }
-        
-        // non-empty set
+
+        // non-empty hash
         else if (s > 0) {
             return parseExpressionList(s, 0, new Unordered(s))
         }
-        
-        // empty set
+
+        // empty hash
         else if (s == 0) {
             return new Unordered(0)
         }
-        
-        // set with negative size -> null
+
+        // size with negative value -> null
         else if (s < 0) {
             return null
         }
-        
+
         // NaN -> streamed
         else {
             return parseStreamedExpressionList(new Unordered())
@@ -442,26 +591,26 @@ function createParserState({
     function parseHash() {
 
         const s = call(parseSize)
-        
+
         if (s === void 0) {
             stack.push(parseHash)
         }
-        
+
         // non-empty hash
         else if (s > 0) {
             return parseEntryList(s, 0, new Hash(s))
         }
-        
+
         // empty hash
         else if (s == 0) {
             return new Hash(0)
         }
-        
-        // hash with negative value -> null
+
+        // size with negative value -> null
         else if (s < 0) {
             return null
         }
-        
+
         // NaN -> streamed
         else {
             return parseStreamedEntryList(new Hash())
@@ -472,29 +621,67 @@ function createParserState({
     function parsePush() {
 
         const s = call(parseSize)
-        
+
         if (s === void 0) {
             stack.push(parsePush)
         }
-        
+
         // non-empty push
         else if (s > 0) {
             return parseExpressionList(s, 0, new Push(s))
         }
-        
+
         // empty push
         else if (s == 0) {
             return new Push(0)
         }
-        
-        // push with negative value -> null
+
+        // size with negative value -> null
         else if (s < 0) {
             return null
         }
-        
+
         // NaN -> streamed
         else {
             return parseStreamedExpressionList(new Push())
+        }
+
+    }
+
+    function parseAttributes() {
+
+        const x = call(parseHash)
+
+        if (x !== void 0) {
+            return x ? parseWithAttributes(x) : parseUnmapped()
+        }
+
+        else {
+
+            stack.push(
+                parseAttributes
+            )
+
+        }
+
+    }
+
+    function parseWithAttributes(
+        o = stack.pop() as Hash
+    ) {
+
+        const x = call(parseUnmapped)
+
+        if (x !== void 0) {
+            return hasAttributes(x) ? x : { attributes: o, reply: x }
+        }
+
+        else {
+
+            stack.push(
+                o, parseWithAttributes
+            )
+
         }
 
     }
@@ -521,10 +708,14 @@ function createParserState({
             return o
         }
 
-        count = m - 1
-        stack.push(
-            o, parseAsciiLineBytes
-        )
+        else {
+
+            count = m - 1
+            stack.push(
+                o, parseAsciiLineBytes
+            )
+
+        }
 
     }
 
@@ -548,10 +739,14 @@ function createParserState({
             return decode(composer.compose())
         }
 
-        count -= 2
-        stack.push(
-            parseLine
-        )
+        else {
+
+            count -= 2
+            stack.push(
+                parseLine
+            )
+
+        }
 
     }
 
@@ -581,10 +776,14 @@ function createParserState({
             return count = m + 1, s * i
         }
 
-        count = m - 1
-        stack.push(
-            i, s, parseDecimals
-        )
+        else {
+
+            count = m - 1
+            stack.push(
+                i, s, parseDecimals
+            )
+
+        }
 
     }
 
@@ -600,293 +799,63 @@ function createParserState({
 
             i *= 10n
             i -= 48n - BigInt(x)
-        
+
         }
 
         if (x) {
             return count = m + 1, s < 0 ? -i : i
         }
 
-        count = m - 1
-        stack.push(
-            i, s, parseBigIntDecimals
-        )
-
-    }
-
-    function parseBlob() {
-
-        const s = call(parseSize)
-
-        if (s === void 0) {
-            stack.push(parseBlob)
-        }
-        
-        // non-empty blob
-        else if (s > 0) {
-            return parseDecodedBlob(s)
-        }
-        
-        // empty blob
-        else if (s == 0) {
-            return count += 2, EMPTY_BUFFER
-        }
-        
-        // negative size -> null
-        else if (s < 0) {
-            return null
-        }
-        
-        // NaN -> chunked
-        else {
-            return parseChunkedBlob()
-        }
-
-    }
-
-    function parseChunkedBlob() {
-
-        let e
-
-        while ((e = call(captureChunk))) {
-            // ...
-        }
-
-        if (e === null) {
-            return composer.compose()
-        }
-
-        stack.push(
-            parseChunkedBlob
-        )
-
-    }
-
-    function parseDecodedBlob(
-        s = stack.pop() as number
-    ) {
-
-        const m = Math.min(s, Math.max(0, chunk.byteLength - count))
-        
-        s -= m
-
-        m > 0 && 
-        composer.add(chunk.subarray(
-            count,
-            count + m
-        ))
-
-        count += m + 2
-
-        if (s == 0) {
-            return composer.compose()
-        }
-
-        count -= 2
-        stack.push(
-            s, parseDecodedBlob
-        )
-
-    }
-
-    function parseEntryInStream() {
-        return chunk[count] != Char['.'] ? parseEntry() : void 0
-    }
-
-    function parseStreamedEntryList(
-        o = stack.pop() as Hash
-    ) {
-
-        let e
-
-        while (chunk[count] && void 0 !== (e = call(parseEntryInStream))) {
-            o.push(e)
-        }
-
-        // End of stream
-        if (chunk[count] == Char['.']) {
-            return count += 3, o
-        }
-
-        stack.push(
-            o, parseStreamedEntryList
-        )
-
-    }
-
-    function parseEntryList(
-        s = stack.pop() as number,
-        i = stack.pop() as number,
-        o = stack.pop() as Hash
-    ) {
-
-        for (
-            let e; i < s && void 0 !== (e = call(parseEntry)); i++
-        ) {
-
-            o[i] = e
-
-        }
-
-        if (i == s) {
-            return o
-        }
-
-        stack.push(
-            o, i, s, parseEntryList
-        )
-
-    }
-
-    function parseEntry() {
-        return parseExpressionList(2, 0, new Array(2)) as [ unknown, unknown ] | undefined
-    }
-
-    function parseReplyInStream() {
-        return chunk[count] != Char['.'] ? parseReply() : void 0
-    }
-
-    function parseStreamedExpressionList(
-        o = stack.pop() as unknown[]
-    ) {
-
-        let e
-
-        while (chunk[count] && void 0 !== (e = call(parseReplyInStream))) {
-            o.push(e)
-        }
-
-        if (chunk[count] == Char['.']) {
-            return count += 3, o
-        }
-
-        stack.push(
-            o, parseStreamedExpressionList
-        )
-
-    }
-
-    function parseExpressionList(
-        s = stack.pop() as number,
-        i = stack.pop() as number,
-        o = stack.pop() as unknown[]
-    ) {
-
-        for (
-            let e; i < s && void 0 !== (e = call(parseReply)); i++
-        ) {
-
-            o[i] = e
-
-        }
-
-        if (i == s) {
-            return o
-        }
-
-        stack.push(
-            o, i, s, parseExpressionList
-        )
-
-    }
-
-    function parseSize() {
-
-        const x = chunk[count]
-        
-        // streamed -> NaN
-        if (x == Char['?']) {
-            return count += 3, NaN
-        }
-        
-        // shortcut for 0
-        else if (x == Char['Ø']) {
-            return count += 3, 0
-        }
-        
-        // "-1"
-        else if (x == Char['-']) {
-            return count += 4, -1
-        }
-        
-        else if (x) {
-            return parseUint32(0)
-        }
-        
         else {
 
+            count = m - 1
             stack.push(
-                parseSize
+                i, s, parseBigIntDecimals
             )
 
         }
 
     }
 
-    function parseUint32(
-        o = stack.pop() as number
-    ) {
-
-        let x
-        let m = count
-
-        // We assume that `i` will be less than `Number.MAX_SAFE_INTEGER`
-        while ((x = chunk[m++]) && x != Char[`↲`]) {
-            
-            o *= 10
-            o -= 48 - x
-
-        }
-
-        count = m + 1
-
-        if (x) {
-            return o
-        }
-
-        count -= 2
-        stack.push(
-            o, parseUint32
-        )
-
-    }
-
-    function captureChunk() {
-
-        // We skip ";"
-        return ++count && captureChunkBytes()
-    
-    }
-
-    function captureChunkBytes() {
+    function captureBlob() {
 
         const s = call(parseSize)
-        
+
         if (s === void 0) {
-            stack.push(captureChunkBytes)
+            stack.push(captureBlob)
         }
 
-        // non-empty chunk
+        // non-empty blob
         else if (s > 0) {
-            return captureUndecodedBlob(s)
+            return captureUncomposedBlob(s)
         }
 
-        // end
-        else {
+        // empty blob
+        else if (s == 0) {
+            return count += 2, ''
+        }
+
+        // negative size -> null
+        else if (s < 0) {
             return null
         }
 
+        // NaN -> chunked
+        else {
+            return captureChunkedBlob()
+        }
+
     }
 
-    function captureUndecodedBlob(
+    function captureUncomposedBlob(
         s = stack.pop() as number
     ) {
 
         const m = Math.min(s, Math.max(0, chunk.byteLength - count))
-        
+
         s -= m
 
-        m > 0 && 
+        m > 0 &&
         composer.add(chunk.subarray(
             count,
             count + m
@@ -895,18 +864,47 @@ function createParserState({
         count += m + 2
 
         if (s == 0) {
-            return true
+            return composer
         }
 
-        count -= 2
-        stack.push(
-            s, captureUndecodedBlob
-        )
+        else {
+
+            count -= 2
+            stack.push(
+                s, captureUncomposedBlob
+            )
+
+        }
 
     }
 
-    return {
+    function captureChunkedBlob() {
+        
+        let e
+        while ((e = call(captureChunk))) {
+            // ...
+        }
 
+        if (e !== void 0) {
+            return count -= 2, composer
+        }
+
+        else {
+
+            stack.push(
+                captureChunkedBlob
+            )
+
+        }
+
+    }
+
+    function captureChunk() {
+        return ++count, captureBlob()
+    }
+
+    return {
+    
         remainingBytes() {
             return chunk.byteLength - count
         },
@@ -922,28 +920,30 @@ function createParserState({
             stack = [
                 // ...
             ]
+    
             composer.clear()
 
         },
 
-        appendChunk(xs: Uint8Array) {
+        appendChunk(x: Uint8Array) {
 
-            const bs = chunk.byteLength
+            const s = chunk.byteLength
 
-            if (count < bs) {
-                chunk = concat(chunk, xs)
+            if (count < s) {
+                chunk = concat(chunk, x)
             }
-
+    
             else {
-                count -= bs
-                chunk  = xs
+    
+                count -= s
+                chunk  = x
     
             }
 
         },
 
         process() {
-           return call(parseReply)
+           return call(parse)
         },
 
     } as const
@@ -954,7 +954,7 @@ function createParserState({
  *  ...
  */
 export class Resp3Parser {
-
+    
     /**
      *  returns `true` if the buffer is empty and the 
      *  response has been completely parsed
@@ -981,7 +981,7 @@ export class Resp3Parser {
      *  const blob = new TextEncoder().encode('+Welcome, this is a test...\r\n:1234\r\n')
      *  
      *  // create the parser
-     *  const parser = new ChunkedParser()
+     *  const parser = new Resp3Parser()
      *  
      *  // append a chunk "+Welcome"
      *  parser.appendChunk(blob.subarray(0, 8))
@@ -1002,15 +1002,17 @@ export class Resp3Parser {
     constructor(
         opts: Resp3ParserOptions = {}
     ) {
-
-        const state = createParserState(opts)
         
+        const state = createParserState(opts)
+
         Object.defineProperties(this, {
+
             done           : { get   : state.done },
             remainingBytes : { get   : state.remainingBytes },
             reset          : { value : state.reset },
             appendChunk    : { value : state.appendChunk },
             process        : { value : state.process },
+        
         })
 
     }
