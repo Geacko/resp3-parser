@@ -6,10 +6,10 @@ import {
 export interface Resp3ParserOptions {
 
     /**
-     *  If true, all RESPv2/v3 bulk strings that are 
-     *  not a key of a `Hash` will be returned 
-     *  decoded. Otherwise, a `Bulk` object will 
-     *  be returned.
+     *  If `false`, all RESPv2/v3 bulk strings 
+     *  that are not a key of a `Hash` will be 
+     *  returned as `Bulk`. 
+     *  Otherwise, a `string` will be returned.
      *  @default true
      */
     decodeBulk?: boolean
