@@ -49,14 +49,14 @@ while (parser.remainingBytes > 0) {
 | Big Number            | `bigint`                               |
 | Boolean               | `boolean`                              |
 | Double                | `number`                               |
-| Array                 | `Array<T>`                             |
+| Array                 | `Array`                                |
 | Null                  | `null`                                 |
 | Bulk String           | `Bulk` or `string`                     |
-| Verbatim String       | `Bulk`                                 |
+| Verbatim String       | `FormatedBulk`                         |
 | Bulk Error            | `Failure`                              |
-| Set                   | `Unordered<T>`                         |
-| Map                   | `Hash<T>`                              |
-| Attributes            | `Hash<T>`                              |
-| Hello                 |`Hash<T>`                               |
-| Push                  | `Push<T>`                              |
+| Set                   | `Unordered`                            |
+| Map                   | `Hash`                                 |
+| Attributes            | `Hash`                                 |
+| Hello                 | `Hash`                                 |
+| Push                  | `Push`                                 |
 | Reply with Attributes | `{ reply: unknown, attributes: Hash }` |

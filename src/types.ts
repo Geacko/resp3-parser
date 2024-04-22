@@ -6,7 +6,7 @@ import {
 export interface Resp3ParserOptions {
 
     /**
-     *  If true, all RESP3 bulk strings that are 
+     *  If true, all RESPv2/v3 bulk strings that are 
      *  not a key of a `Hash` will be returned 
      *  decoded. Otherwise, a `Bulk` object will 
      *  be returned.

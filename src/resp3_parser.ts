@@ -98,15 +98,15 @@ function createParserState({
             case Code[`:`]: return parseInt()
             case Code[`$`]: return parseBulk()
             case Code[`*`]: return parseList()
+            case Code[`~`]: return parseUnordered()
+            case Code[`%`]: return parseHash()
             case Code[`_`]: return parseNil()
             case Code[`#`]: return parseBoolean()
             case Code[`,`]: return parseDouble()
             case Code[`(`]: return parseBigNumbers()
             case Code[`!`]: return parseBulkFailure()
-            case Code[`~`]: return parseUnordered()
-            case Code[`=`]: return parseEncodedBulk()
-            case Code[`%`]: return parseHash()
             case Code[`>`]: return parsePush()
+            case Code[`=`]: return parseFormatedBulk()
             case Code[`|`]: return parseAttributes()
 
         }
@@ -303,7 +303,7 @@ function createParserState({
 
     }
 
-    function parseEncodedBulk() {
+    function parseFormatedBulk() {
      
         const x = call(captureBlob)
 
@@ -332,17 +332,17 @@ function createParserState({
         else {
 
             stack.push(
-                parseEncodedBulk
+                parseFormatedBulk
             )
 
         }
 
     }
 
-    function parseExpressionList(
+    function parseExpressionList<T extends Array<unknown>>(
         s = stack.pop() as number,
         i = stack.pop() as number,
-        o = stack.pop() as unknown[]
+        o = stack.pop() as T
     ) {
 
         for (
@@ -439,8 +439,8 @@ function createParserState({
         return chunk[count] != Char['.'] ? parse() : void 0
     }
 
-    function parseStreamedExpressionList(
-        o = stack.pop() as unknown[]
+    function parseStreamedExpressionList<T extends Array<unknown>>(
+        o = stack.pop() as T
     ) {
 
         let e
@@ -538,7 +538,7 @@ function createParserState({
         
         // non-empty array
         else if (s > 0) {
-            return parseExpressionList(s, 0, new Array(s))
+            return parseExpressionList(s, 0, new Array<unknown>(s))
         } 
         
         // empty array
@@ -553,7 +553,7 @@ function createParserState({
 
         // size is NaN -> streamed
         else {
-            return parseStreamedExpressionList([])
+            return parseStreamedExpressionList([] as unknown[])
         }
 
     }
