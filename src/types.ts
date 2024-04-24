@@ -6,13 +6,19 @@ import {
 export interface Resp3ParserOptions {
 
     /**
-     *  If `false`, all RESPv2/v3 bulk strings 
-     *  that are not a key of a `Hash` will be 
-     *  returned as `Bulk`. 
-     *  Otherwise, a `string` will be returned.
+     *  If `false`, all RESPv2/v3 bulk strings that 
+     *  are not a key of a `Hash` will be returned 
+     *  as `Bulk`. Otherwise, a `string` will be 
+     *  returned.
      *  @default true
      */
     decodeBulk?: boolean
+
+    /**
+     *  If `true`, enables parsing of RESP3 types.
+     *  @default true
+     */
+    enableResp3?: boolean
 
     /**
      *  Maps all replies

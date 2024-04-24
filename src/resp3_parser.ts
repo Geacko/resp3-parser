@@ -69,7 +69,7 @@ interface Func<T> {
 }
 
 function createParserState({
-    decodeBulk = true, map
+    decodeBulk = true, enableResp3 = true, map
 } : Resp3ParserOptions) {
 
     const composer 
@@ -85,7 +85,27 @@ function createParserState({
         return (stack.length ? stack.pop() as Func<T> : proc)()
     }
 
-    function parseUnmapped() : Maybe<unknown> {
+    function parseResp2Unmapped() : Maybe<unknown> {
+
+        switch (chunk[count++]) {
+
+            case void 0: {
+                return count--, void 0
+            }
+
+            case Code[`+`]: return parseLine()
+            case Code[`-`]: return parseFailure()
+            case Code[`:`]: return parseInt()
+            case Code[`$`]: return parseBulk()
+            case Code[`*`]: return parseList()
+
+        }
+
+        throw new SyntaxError()
+
+    }
+
+    function parseResp3Unmapped() : Maybe<unknown> {
 
         switch (chunk[count++]) {
 
@@ -123,9 +143,27 @@ function createParserState({
     
     }
 
-    function parseMapped() {
+    function parseResp2Mapped() {
 
-        const x = call(parseUnmapped)
+        const x = call(parseResp2Unmapped)
+
+        if (x !== void 0) {
+            return map!(x)
+        }
+
+        else {
+
+            stack.push(
+                parseResp2Mapped
+            )
+        
+        }
+
+    }
+
+    function parseResp3Mapped() {
+
+        const x = call(parseResp3Unmapped)
 
         if (x !== void 0) {
 
@@ -138,7 +176,7 @@ function createParserState({
         else {
 
             stack.push(
-                parseMapped
+                parseResp3Mapped
             )
         
         }
@@ -146,9 +184,8 @@ function createParserState({
     }
 
     const parse 
-        = map 
-        ? parseMapped 
-        : parseUnmapped
+        = map ? enableResp3 ? parseResp3Mapped   : parseResp2Mapped 
+              : enableResp3 ? parseResp3Unmapped : parseResp2Unmapped 
 
     function parseFailure() {
 
@@ -653,7 +690,7 @@ function createParserState({
         const x = call(parseHash)
 
         if (x !== void 0) {
-            return x ? parseWithAttributes(x) : parseUnmapped()
+            return x ? parseWithAttributes(x) : parseResp3Unmapped()
         }
 
         else {
@@ -670,7 +707,7 @@ function createParserState({
         o = stack.pop() as Hash
     ) {
 
-        const x = call(parseUnmapped)
+        const x = call(parseResp3Unmapped)
 
         if (x !== void 0) {
             return hasAttributes(x) ? x : { attributes: o, reply: x }
